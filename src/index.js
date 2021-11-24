@@ -32,8 +32,8 @@ async function handler(client, res) {
     );
     var now = new Date().toISOString();
     console.log('Fetching MedicationStatements for ' + patient.id);
-    const medicationStatements = await (
-        client.request('MedicationStatement?status=active&patient=' + patient.id)
+    const medicationStatementsBundle = await (
+        client.request('MedicationStatement?patient=' + patient.id)
         .catch(function(r3) {
             //Error responses
             if (r3.status){
@@ -43,12 +43,17 @@ async function handler(client, res) {
             if (r3.message){
                 console.log('Error', r3.message);
             }
-            return []
+            return [];
         })
     );
+    console.log('Found ' + JSON.stringify(medicationStatementsBundle));
+    var medicationStatements = medicationStatementsBundle.entry?.map(function(e) {
+        return e.resource
+    }) ?? [];
+    console.log('Found ' + medicationStatements);
     console.log('Fetching MedicationRequests');
-    const medicationRequests = await (
-        client.request('MedicationRequest?status=active&patient=' + patient.id)
+    const medicationRequestsBundle = await (
+        client.request('MedicationRequest?patient=' + patient.id)
         .catch(function(r3) {
             //Error responses
             if (r3.status){
@@ -61,6 +66,11 @@ async function handler(client, res) {
             return []
         })
     );
+    console.log('Found ' + JSON.stringify(medicationRequestsBundle));
+    var medicationRequests = medicationRequestsBundle.entry?.map(function(e) {
+        return e.resource
+    }) ?? [];
+    console.log('Found ' + medicationRequests);
     var medsList = medicationStatements.concat(medicationRequests);
     console.log('Meds list includes ' + medsList.length);
     if (medsList.length === 0) {
@@ -98,8 +108,8 @@ async function handler(client, res) {
         },
         "entry": medsEntryList
     };
-    const allergies = await (
-        client.request('AllergyIntolerance?clinicalStatus=active&patient=' + patient.id)
+    const allergiesBundle = await (
+        client.request('AllergyIntolerance?patient=' + patient.id)
         .catch(function(r3) {
             //Error responses
             if (r3.status){
@@ -112,6 +122,11 @@ async function handler(client, res) {
             return []
         })
     );
+    console.log('Found ' + JSON.stringify(allergiesBundle));
+    var allergies = allergiesBundle.entry?.map(function(e) {
+        return e.resource
+    }) ?? [];
+
     if (allergies.length === 0) {
         allergies.push({
             "resourceType": "AllergyIntolerance",
@@ -153,8 +168,8 @@ async function handler(client, res) {
         },
         "entry": allergiesEntryList
     };
-    const problems = await (
-        client.request('Condition?clinicalStatus=active&patient=' + patient.id)
+    const problemsBundle = await (
+        client.request('Condition?patient=' + patient.id)
         .catch(function(r3) {
             //Error responses
             if (r3.status){
@@ -167,6 +182,11 @@ async function handler(client, res) {
             return []
         })
     );
+    console.log('Found ' + JSON.stringify(problemsBundle));
+    var problems = problemsBundle.entry?.map(function(e) {
+        return e.resource
+    }) ?? [];
+
     if (problems.length === 0) {
         problems.push({
             "resourceType": "Condition",
