@@ -16,7 +16,7 @@ const smartSettings = {
     clientId: "ips-exporter",
     redirectUri: "/app",
     scope: "launch/patient patient/*.read openid fhirUser",
-    iss: "https://oridashistore1datasvc.azurewebsites.net/"
+    iss: "https://launch.smarthealthit.org/v/r4/fhir"
 };
 
 
@@ -258,7 +258,7 @@ async function handler(client, res) {
     };
     var bundleEntries = [composition, patient, practitioner];
     bundleEntries = bundleEntries.concat(medsList).concat(allergies).concat(problems);
-    var bundle = {
+    const bundle = {
         "resourceType": "Bundle",
         "type": "document",
         "timestamp": now,
@@ -285,7 +285,11 @@ async function handler(client, res) {
         "headers": { "Content-Type": "application/json"}
     }).then(function(r2) {
         console.log(r2);
-        res.json(r2);
+        var result = {
+            "resource": bundle,
+            "validationResult": r2
+        }
+        res.json(result);
     }).catch(function(r3) {
         //Error responses
         if (r3.status){
