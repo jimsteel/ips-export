@@ -1,8 +1,7 @@
 const smart   = require("fhirclient");
 const session = require("express-session");
 const app     = require("express")();
-const uuidv4 = require("uuid");
-
+const { v4: uuidv4 } = require('uuid');
 
 // The SMART state is stored in a session. If you want to clear your session
 // and start over, you will have to delete your "connect.sid" cookie!
@@ -62,18 +61,20 @@ async function handler(client, res) {
             return []
         })
     );
-    var medsEntryList = medicationStatements.concat(medicationRequests);
-    console.log('Meds list includes ' + medsEntryList.length);
-    if (medsEntryList.length === 0) {
-        medsEntryList.push({
+    var medsList = medicationStatements.concat(medicationRequests);
+    console.log('Meds list includes ' + medsList.length);
+    if (medsList.length === 0) {
+        medsList.push({
             "resourceType": "MedicationStatement",
             "id": uuidv4(),
             "status": "active",
-            "subject": "Patient/" + data.id,
+            "subject": {
+                "reference": "Patient/" + data.id
+            },
             "medicationCodeableConcept": {
                 "coding": [
                     {
-                        "system": "http://build.fhir.org/ig/HL7/fhir-ips/CodeSystem-absent-unknown-uv-ips.html",
+                        "system": "http://hl7.org/fhir/uv/ips/CodeSystem/absent-unknown-uv-ips",
                         "code": "no-medication-info"
                     }
                 ]
@@ -81,8 +82,11 @@ async function handler(client, res) {
             "effectiveDateTime": now
         });
     }
-    console.log('Meds list includes ' + medsEntryList.length);
-    var medicationsSection = {
+    console.log('Meds list includes ' + medsList.length);
+    var medsEntryList = medsList.map(function(m) {
+        return {"reference": m.resourceType + "/" + m.id}
+    });
+   var medicationsSection = {
         "title": "Medications Summary",
         "code": {
             "coding": [
@@ -144,12 +148,31 @@ async function handler(client, res) {
             allergiesSection,
             problemsSection
         ]
+    };
+    var bundleEntries = [composition, data, practitioner];
+    bundleEntries = bundleEntries.concat(medsList);
+    var bundle = {
+        "resourceType": "Bundle",
+        "type": "document",
+        "timestamp": now,
+        "identifier": [
+            {
+                "system": "urn:ietf:rfc:3986",
+                "value": "urn:" + uuidv4()
+            }
+        ],
+        "entry": bundleEntries.map(function(e) {
+            return {
+                "fullUrl": "urn:" + uuidv4(),
+                "resource": e
+            }
+        })
     }
-    console.log(JSON.stringify(composition));
+    console.log(JSON.stringify(bundle));
     //const client2 = new Client()
     client.request({
-        "url": "https://r4.ontoserver.csiro.au/fhir/Composition/$validate",
-        "body": JSON.stringify(composition),
+        "url": "https://r4.ontoserver.csiro.au/fhir/Bundle/$validate",
+        "body": JSON.stringify(bundle),
         "method": "POST",
         "credentials": "omit",
         "headers": { "Content-Type": "application/json"}

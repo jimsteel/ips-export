@@ -9,7 +9,8 @@
     "dependencies": {
         "express": "4.17.1",
         "express-session": "1.17.2",
-        "fhirclient": "2.4.0"
+        "fhirclient": "2.4.0",
+        "uuid": "8.3.2"
     },
     "devDependencies": {
         "nodemon": "1.18.4"
