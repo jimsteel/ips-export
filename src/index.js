@@ -16,7 +16,7 @@ const smartSettings = {
     clientId: "ips-exporter",
     redirectUri: "/app",
     scope: "launch/patient patient/*.read openid fhirUser",
-    iss: "https://launch.smarthealthit.org/v/r4/fhir"
+    iss: "https://oridashistore1datasvc.azurewebsites.net/"
 };
 
 
