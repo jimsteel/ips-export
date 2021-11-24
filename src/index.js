@@ -24,16 +24,16 @@ const smartSettings = {
 // we know who he is, or all patients otherwise
 async function handler(client, res) {
     console.log('Running handler for ' + client.patient.id);
-    const data = await (
+    const patient = await (
         client.patient.id ? client.patient.read() : client.request("Patient")
     );
     const practitioner = await (
         client.user.id ? client.user.read() : client.request("Practitioner")
     );
     var now = new Date().toISOString();
-    console.log('Fetching MedicationStatements');
+    console.log('Fetching MedicationStatements for ' + patient.id);
     const medicationStatements = await (
-        client.patient.request('MedicationStatement')
+        client.request('MedicationStatement?status=active&patient=' + patient.id)
         .catch(function(r3) {
             //Error responses
             if (r3.status){
@@ -48,7 +48,7 @@ async function handler(client, res) {
     );
     console.log('Fetching MedicationRequests');
     const medicationRequests = await (
-        client.patient.request('MedicationRequest')
+        client.request('MedicationRequest?status=active&patient=' + patient.id)
         .catch(function(r3) {
             //Error responses
             if (r3.status){
@@ -69,7 +69,7 @@ async function handler(client, res) {
             "id": uuidv4(),
             "status": "active",
             "subject": {
-                "reference": "Patient/" + data.id
+                "reference": "Patient/" + patient.id
             },
             "medicationCodeableConcept": {
                 "coding": [
@@ -98,6 +98,49 @@ async function handler(client, res) {
         },
         "entry": medsEntryList
     };
+    const allergies = await (
+        client.request('AllergyIntolerance?clinicalStatus=active&patient=' + patient.id)
+        .catch(function(r3) {
+            //Error responses
+            if (r3.status){
+                console.log('Error', r3.status);
+            }
+            //Errors
+            if (r3.message){
+                console.log('Error', r3.message);
+            }
+            return []
+        })
+    );
+    if (allergies.length === 0) {
+        allergies.push({
+            "resourceType": "AllergyIntolerance",
+            "id": uuidv4(),
+            "clinicalStatus": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+                        "code": "active"
+                    }
+                ]
+            },
+            "patient": {
+                "reference": "Patient/" + patient.id
+            },
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://hl7.org/fhir/uv/ips/CodeSystem/absent-unknown-uv-ips",
+                        "code": "no-allergy-info"
+                    }
+                ]
+            },
+        });
+    }
+    console.log('Allergies list includes ' + allergies.length);
+    var allergiesEntryList = allergies.map(function(m) {
+        return {"reference": m.resourceType + "/" + m.id}
+    });
     var allergiesSection = {
         "title": "Allergies and Intolerances",
         "code": {
@@ -108,8 +151,51 @@ async function handler(client, res) {
                 }
             ]
         },
-        "entry": []
+        "entry": allergiesEntryList
     };
+    const problems = await (
+        client.request('Condition?clinicalStatus=active&patient=' + patient.id)
+        .catch(function(r3) {
+            //Error responses
+            if (r3.status){
+                console.log('Error', r3.status);
+            }
+            //Errors
+            if (r3.message){
+                console.log('Error', r3.message);
+            }
+            return []
+        })
+    );
+    if (problems.length === 0) {
+        problems.push({
+            "resourceType": "Condition",
+            "id": uuidv4(),
+            "clinicalStatus": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                        "code": "active"
+                    }
+                ]
+            },
+            "subject": {
+                "reference": "Patient/" + patient.id
+            },
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://hl7.org/fhir/uv/ips/CodeSystem/absent-unknown-uv-ips",
+                        "code": "no-problem-info"
+                    }
+                ]
+            },
+        });
+    }
+    console.log('Problems list includes ' + problems.length);
+    var problemsEntryList = problems.map(function(m) {
+        return {"reference": m.resourceType + "/" + m.id}
+    });
     var problemsSection = {
         "title": "Problems",
         "code": {
@@ -119,7 +205,8 @@ async function handler(client, res) {
                     "code": "11450-4"
                 }
             ]
-        }
+        },
+        "entry": problemsEntryList
     };
     var composition = {
         "resourceType": "Composition",
@@ -127,12 +214,12 @@ async function handler(client, res) {
             "profile": ["http://hl7.org/fhir/uv/ips/StructureDefinition/Composition-uv-ips"]
         },
         "subject": {
-            "reference": 'Patient/' + data.id
+            "reference": 'Patient/' + patient.id
         },
         "author": [{
             "reference": "Practitioner/" + practitioner.id
         }],
-        "title": "IPS summary for " + data.id,
+        "title": "IPS summary for " + patient.id,
         "status": "preliminary",
         "date": now,
         "type": {
@@ -149,8 +236,8 @@ async function handler(client, res) {
             problemsSection
         ]
     };
-    var bundleEntries = [composition, data, practitioner];
-    bundleEntries = bundleEntries.concat(medsList);
+    var bundleEntries = [composition, patient, practitioner];
+    bundleEntries = bundleEntries.concat(medsList).concat(allergies).concat(problems);
     var bundle = {
         "resourceType": "Bundle",
         "type": "document",
